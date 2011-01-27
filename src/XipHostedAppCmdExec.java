@@ -141,36 +141,51 @@ public class XipHostedAppCmdExec extends WG23Application implements WG23Listener
 	@Override
 	public void notifyDataAvailable(AvailableData availableData,
 			boolean lastData) {
+
 		ArrayOfUUID arrayUUIDs = new ArrayOfUUID();
-
-		//Extract UUIDs for all dicom objects, only support the first patient/study/series
-		List<Patient> patients = availableData.getPatients().getPatient();	
-		if (patients.size() <= 0)
-			return;
-		
-		int iPatient = 0;
-		Patient patient = patients.get(iPatient);	
-
-		List<Study> studies = patient.getStudies().getStudy();		
-		if (studies.size() <= 0)
-			return;
-		
-		int iStudy = 0;
-		Study study = studies.get(iStudy);				
-		List<Series> listOfSeries = study.getSeries().getSeries();
-		
-		if (listOfSeries.size() <= 0)
-			return;
-		
-		int iSeries = 0;
-		Series series = listOfSeries.get(iSeries);		
-		
 		List<Uuid> listUUIDs = arrayUUIDs.getUuid();
-		ArrayOfObjectDescriptor descriptors = series.getObjectDescriptors();
-		List<ObjectDescriptor> listDescriptors = descriptors.getObjectDescriptor();
-		for(int m = 0;  m < listDescriptors.size(); m++){
-			ObjectDescriptor desc = listDescriptors.get(m);
-			listUUIDs.add(desc.getUuid());
+
+		// Extract UUIDs for all objects
+		extractUUIDs (availableData.getObjectDescriptors(), listUUIDs);
+
+		if ((availableData.getPatients() != null)
+							&& (availableData.getPatients().getPatient() != null)) {
+			List<Patient> patients = availableData.getPatients().getPatient();	
+			for (Patient patient : patients) {
+				if (patient == null) {
+					continue;
+				}
+				extractUUIDs (patient.getObjectDescriptors(), listUUIDs);
+				if (patient.getStudies() == null) {
+					continue;
+				}
+				List<Study> studies = patient.getStudies().getStudy();
+				if ((studies == null) || (studies.size() <= 0)) {
+					continue;
+				}
+				for (Study study : studies) {
+					if (study == null) {
+						continue;
+					}
+					extractUUIDs (study.getObjectDescriptors(), listUUIDs);
+					if (study.getSeries() == null) {
+						continue;
+					}
+					List<Series> listOfSeries = study.getSeries().getSeries();
+					if ((listOfSeries == null) || (listOfSeries.size() <= 0)) {
+						continue;
+					}
+					for (Series series : listOfSeries) {
+						if (series == null) {
+							continue;
+						}
+						extractUUIDs (series.getObjectDescriptors(), listUUIDs);
+					}
+				}
+			}
+		}
+		if (listUUIDs.isEmpty()) {
+			return;
 		}
 		
 		ArrayOfObjectLocator objLocs = getClientToHost().getDataAsFile(arrayUUIDs, true);
@@ -195,9 +210,20 @@ public class XipHostedAppCmdExec extends WG23Application implements WG23Listener
 			e.printStackTrace();
 		}
 	}
+	
+	private void extractUUIDs (ArrayOfObjectDescriptor descriptors, List<Uuid> listUUIDs) {
+		if (descriptors == null)
+			return;
+		
+		List<ObjectDescriptor> listDescriptors = descriptors.getObjectDescriptor();
+		for(ObjectDescriptor desc : listDescriptors){
+			listUUIDs.add(desc.getUuid());
+		}
+	}
 
 	@Override
 	public boolean setState(State newState) {
+		appCurrentState = newState;
 		if(State.valueOf(newState.toString()).equals(State.CANCELED)){
 			getClientToHost().notifyStateChanged(State.CANCELED);
 			getClientToHost().notifyStateChanged(State.IDLE);
@@ -214,6 +240,11 @@ public class XipHostedAppCmdExec extends WG23Application implements WG23Listener
 		return true;
 	}
 	
+	@Override
+	public State getState() {
+		return appCurrentState;
+	}
+
 	@SuppressWarnings("unchecked")
 	@Override
 	public void outputAvailable(OutputAvailableEvent e) {
