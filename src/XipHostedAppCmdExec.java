@@ -6,19 +6,24 @@ import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
-import org.nema.dicom.wg23.ArrayOfObjectDescriptor;
-import org.nema.dicom.wg23.ArrayOfObjectLocator;
-import org.nema.dicom.wg23.ArrayOfUUID;
-import org.nema.dicom.wg23.AvailableData;
-import org.nema.dicom.wg23.ObjectDescriptor;
-import org.nema.dicom.wg23.ObjectLocator;
-import org.nema.dicom.wg23.Patient;
-import org.nema.dicom.wg23.Series;
-import org.nema.dicom.wg23.State;
-import org.nema.dicom.wg23.Study;
-import org.nema.dicom.wg23.Uuid;
+import org.nema.dicom.PS3_19.ArrayOfObjectDescriptor;
+import org.nema.dicom.PS3_19.ArrayOfObjectLocator;
+import org.nema.dicom.PS3_19.ArrayOfUID;
+import org.nema.dicom.PS3_19.ArrayOfUUID;
+import org.nema.dicom.PS3_19.AvailableData;
+import org.nema.dicom.PS3_19.ObjectDescriptor;
+import org.nema.dicom.PS3_19.ObjectLocator;
+import org.nema.dicom.PS3_19.Patient;
+import org.nema.dicom.PS3_19.Rectangle;
+import org.nema.dicom.PS3_19.Series;
+import org.nema.dicom.PS3_19.State;
+import org.nema.dicom.PS3_19.Study;
+import org.nema.dicom.PS3_19.UID;
+import org.nema.dicom.PS3_19.UUID;
 
 import edu.wustl.xipApplication.application.ApplicationDataManager;
 import edu.wustl.xipApplication.application.ApplicationDataManagerFactory;
@@ -111,17 +116,17 @@ public class XipHostedAppCmdExec extends WG23Application implements WG23Listener
 		for (int i = 0; i < size; i++){
 			if(i == 0){
 				String filePath;				
-				filePath = new File(objLocs.get(i).getUri()).getPath();
+				filePath = new File(objLocs.get(i).getURI()).getPath();
 				// input = input + "\"" + nols.get(i).getURI() + "\"" + ", ";					
 				filePath = filePath.substring(6 , filePath.length());
 				input = filePath + " ";								
 			} else if(i < size -1){
-				String filePath = new File(objLocs.get(i).getUri()).getPath();
+				String filePath = new File(objLocs.get(i).getURI()).getPath();
 				//input = input + "\"" + nols.get(i).getURI() + "\"" + ", ";
 				filePath = filePath.substring(6 , filePath.length());
 				input = input + filePath + " ";
 			}else if(i == size -1){
-				String filePath = new File(objLocs.get(i).getUri()).getPath();
+				String filePath = new File(objLocs.get(i).getURI()).getPath();
 				//input = input + "\"" + nols.get(i).getURI() + "\"" + ", ";
 				filePath = filePath.substring(6 , filePath.length());
 				input = input + filePath;
@@ -131,7 +136,7 @@ public class XipHostedAppCmdExec extends WG23Application implements WG23Listener
 	}
 	
 	@Override
-	public boolean bringToFront() {
+	public boolean bringToFront(Rectangle location) {
 		// Schedule a job for the event-dispatching thread:
 		// bringing to front.
 		return true;
@@ -143,10 +148,13 @@ public class XipHostedAppCmdExec extends WG23Application implements WG23Listener
 			boolean lastData) {
 
 		ArrayOfUUID arrayUUIDs = new ArrayOfUUID();
-		List<Uuid> listUUIDs = arrayUUIDs.getUuid();
+		List<UUID> listUUIDs = arrayUUIDs.getUUID();
+		ArrayOfUID arrayTsUID = new ArrayOfUID();
+		List<UID> listTsUID = arrayTsUID.getUID();
+		HashSet<UID> setTsUID = new HashSet<UID>(5);
 
 		// Extract UUIDs for all objects
-		extractUUIDs (availableData.getObjectDescriptors(), listUUIDs);
+		extractUUIDs (availableData.getObjectDescriptors(), listUUIDs, setTsUID);
 
 		if ((availableData.getPatients() != null)
 							&& (availableData.getPatients().getPatient() != null)) {
@@ -155,7 +163,7 @@ public class XipHostedAppCmdExec extends WG23Application implements WG23Listener
 				if (patient == null) {
 					continue;
 				}
-				extractUUIDs (patient.getObjectDescriptors(), listUUIDs);
+				extractUUIDs (patient.getObjectDescriptors(), listUUIDs, setTsUID);
 				if (patient.getStudies() == null) {
 					continue;
 				}
@@ -167,7 +175,7 @@ public class XipHostedAppCmdExec extends WG23Application implements WG23Listener
 					if (study == null) {
 						continue;
 					}
-					extractUUIDs (study.getObjectDescriptors(), listUUIDs);
+					extractUUIDs (study.getObjectDescriptors(), listUUIDs, setTsUID);
 					if (study.getSeries() == null) {
 						continue;
 					}
@@ -179,7 +187,7 @@ public class XipHostedAppCmdExec extends WG23Application implements WG23Listener
 						if (series == null) {
 							continue;
 						}
-						extractUUIDs (series.getObjectDescriptors(), listUUIDs);
+						extractUUIDs (series.getObjectDescriptors(), listUUIDs, setTsUID);
 					}
 				}
 			}
@@ -187,8 +195,15 @@ public class XipHostedAppCmdExec extends WG23Application implements WG23Listener
 		if (listUUIDs.isEmpty()) {
 			return;
 		}
-		
-		ArrayOfObjectLocator objLocs = getClientToHost().getDataAsFile(arrayUUIDs, true);
+
+		String defaultTSString = "1.2.840.10008.1.2.1";
+		UID defaultTsUID = new UID();
+		defaultTsUID.setUid(defaultTSString);
+		setTsUID.add(defaultTsUID);
+		for (UID tsUID : setTsUID) {
+			listTsUID.add(tsUID);
+		}
+		ArrayOfObjectLocator objLocs = getClientToHost().getData(arrayUUIDs, arrayTsUID, true);
 		List<ObjectLocator> listObjLocs = objLocs.getObjectLocator();
 
 		// Start a process with inputs array as command line arguments.
@@ -204,20 +219,21 @@ public class XipHostedAppCmdExec extends WG23Application implements WG23Listener
 				wrkDir = new File(executableDir);
 				
 			}
-			Runtime.getRuntime().exec(inputs, envp, wrkDir);
+			cmdProcess = Runtime.getRuntime().exec(inputs, envp, wrkDir);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
 	
-	private void extractUUIDs (ArrayOfObjectDescriptor descriptors, List<Uuid> listUUIDs) {
+	private void extractUUIDs (ArrayOfObjectDescriptor descriptors, List<UUID> listUUIDs, Set<UID> setTsUID) {
 		if (descriptors == null)
 			return;
 		
 		List<ObjectDescriptor> listDescriptors = descriptors.getObjectDescriptor();
 		for(ObjectDescriptor desc : listDescriptors){
-			listUUIDs.add(desc.getUuid());
+			listUUIDs.add(desc.getDescriptorUuid());
+			setTsUID.add(desc.getTransferSyntaxUID());
 		}
 	}
 
@@ -234,6 +250,7 @@ public class XipHostedAppCmdExec extends WG23Application implements WG23Listener
 			ApplicationTerminator terminator = new ApplicationTerminator(getEndPoint());
 			Thread t = new Thread(terminator);
 			t.start();	
+			cmdProcess.destroy();
 		}else{
 			getClientToHost().notifyStateChanged(newState);
 		}
