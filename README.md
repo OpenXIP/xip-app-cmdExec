@@ -8,7 +8,7 @@ used for other types of applications.
 
 This repository holds a
 [DICOM Hosted Application](http://medical.nema.org/Dicom/2011/11_19pu.pdf)
-built from the XIP Skeleton Application](https://github.com/OpenXIP/xip-host)
+built from the [XIP Skeleton Application](https://github.com/OpenXIP/xip-host)
 that simple executes a shell or DOS command, passing to the command the names
 of the files holding the data being provided by the
 [DICOM Hosting System](http://medical.nema.org/Dicom/2011/11_19pu.pdf).  
